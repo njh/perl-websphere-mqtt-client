@@ -9,6 +9,8 @@ package WebSphere::MQTT::Client;
 #
 
 use strict;
+use Sys::Hostname;
+use Data::Dumper;
 use XSLoader;
 use Carp;
 
@@ -22,27 +24,28 @@ XSLoader::load('WebSphere::MQTT::Client', $VERSION);
 
 sub new {
     my $class = shift;
-    my ($hostname, $port) = @_;
+    my ($hostname, %args) = @_;
     
-	# Store parameters
+ 	# Store parameters
     my $self = {
     	'hostname'		=> '127.0.0.1',	# broker's hostname (localhost)
     	'port'			=> 1883,		# broker's port
+    	'clientid'		=> undef,		# our client ID
     	'timeout'		=> -1,			# receive messages forever
     	'debug'			=> 0,			# debugging disabled
   	
-  		'conn_handle'	=> undef,		# Connection Handle
  
     	# Advanced options (with sensible defaults)
     	'clean_start'	=> 1,			# set CleanStart flag ?
     	'keep_alive'	=> 10,			# timeout (in seconds) for receiving data
     	'retry_count'	=> 10,
     	'retry_interval' => 10,
-    	'retain',		=> 0,			# broker will retain messgae until 
-    									#   another publication is received 
-    									#   for the same topic.  
-    	
-		# LWT stuff:
+
+		# Used internally only    	
+  		'handle'	=> undef,			# Connection Handle
+
+
+		# TODO: LWT stuff
 		#'lwt_enabled'	=> 0,
 		#'lwt_message'	=> undef,
 		#'lwt_qos'		=> 0,
@@ -51,13 +54,51 @@ sub new {
 
     };
     
+    
+    # Host specified ?
+    if (defined $hostname) {
+    	$self->{'hostname'} = $hostname;
+    }
+    
+    # Other arguments ?
+    if (defined %args) {
+		foreach (keys %args) {
+			my $key = $_;
+			$key =~ tr/A-Z/a-z/;
+			$key =~ s/\W//g;
+			$self->{$key} = $args{$_};
+		}
+    }
+    
+    # Generate a Client ID if we don't have one 
+    if (defined $self->{'clientid'}) {
+    	$self->{'clientid'} = substr($self->{'clientid'}, 0, 23);
+  	} else {
+		my $hostname = hostname();
+		my ($host, $domain) = ($hostname =~ /^([^\.]+)\.?(.*)$/);
+    	$self->{'clientid'} = substr($host, 0, 22-length($$)).'-'.$$;
+    }
 
-	### blah ###    
+	## TODO: create threads here
 
     bless $self, $class;
 	return $self;
 }
 
+sub print_config {
+	my $self = shift;
+
+	printf("Client ID      :%s\n", $self->{'clientid'});
+	printf("Broker         :%s\n", $self->{'hostname'});
+	printf("Port           :%d\n", $self->{'port'});
+	printf("Timeout        :%d\n", $self->{'timeout'});
+	printf("Debug          :%s\n", $self->{'debug'});
+	printf("Clean Start    :%d\n", $self->{'clean_start'});
+	printf("Keep Alive     :%d\n", $self->{'keep_alive'});
+	printf("Retry Count    :%d\n", $self->{'retry_count'});
+	printf("Retry Interval :%d\n", $self->{'retry_interval'});
+
+}
 
 sub debug {
 	my $self = shift;
@@ -78,9 +119,6 @@ sub debug {
 
 sub connect {
 	my $self = shift;
-	my ($client_id) = @_;
-	
-	# Max 23 characters
 	
 	
 }
@@ -91,12 +129,18 @@ sub disconnect {
 }
 
 sub publish {
+	my $self = shift;
  		# params for subscribe/publish
 #		'qos'			=> 0,			# quality of service (0/1/2)
+#    	'retain',		=> 0,			# broker will retain messgae until 
+    									#   another publication is received 
+    									#   for the same topic.  
+
 
 }
 
 sub subscribe {
+	my $self = shift;
  		# params for subscribe/publish
 #		'qos'			=> 0,			# quality of service (0/1/2)
 #    	'match'			=> undef,		# only receive messages which look like this
@@ -104,36 +148,35 @@ sub subscribe {
 }
 
 sub receivePub {
+	my $self = shift;
 
 }
 
 sub unsubscribe {
+	my $self = shift;
 
 }
 
 sub status {
+	my $self = shift;
 
 }
 
 sub terminate {
+	my $self = shift;
 
 }
 
-sub close {
-	my $self=shift;
-	
-	# Close the multicast socket
-	#_xs_socket_close( $self->{'sock'} );
-	
-	#undef $self->{'sock'};
+sub libversion {
+	return eval { _xs_version(); };
 }
 
 
 sub DESTROY {
     my $self=shift;
     
-    #if (exists $self->{'sock'} and defined $self->{'sock'}) {
-    #	$self->close();
+    #if (exists $self->{'handle'} and defined $self->{'handle'}) {
+    #	$self->disconnect();
     # }
 }
 
