@@ -14,13 +14,14 @@ use strict;
 # 
 my $mqtt = new WebSphere::MQTT::Client(
 	Hostname => 'smartlab.combe.chem.soton.ac.uk',
-	Debug => 1,
+	Port => 1883,
+#	Debug => 1,
 );
 
 
 # Connect to Broker
-$mqtt->connect();
-
+my $res = $mqtt->connect();
+die "Failed to connect: $res\n" if ($res);
 
 print Dumper( $mqtt );
 
@@ -29,12 +30,25 @@ sleep 1;
 print "status=".$mqtt->status()."\n";
 sleep 1;
 print "status=".$mqtt->status()."\n";
-sleep 1;
+
+# Subscribe to topic
+my $res = $mqtt->subscribe( '#' );
+print "Subscribe result=$res\n";
+
+
+sleep 2;
 print "status=".$mqtt->status()."\n";
+sleep 2;
+
+
+# Subscribe to topic
+my $res = $mqtt->unsubscribe( '#' );
+print "Unubscribe result=$res\n";
 
 
 # Disconnect from the broker
-$mqtt->disconnect();
+my $res = $mqtt->disconnect();
+die "Failed to disconnect: $res\n" if ($res);
 
 sleep 2;
 

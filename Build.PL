@@ -51,6 +51,7 @@ my $build = Module::Build->new
 		'Getopt::Std' => 0,
 		'Pod::Usage' => 0,
 		'Data::Dumper' => 0,
+		'Time::HiRes' => 0,
 	},
 	
 	

@@ -10,7 +10,7 @@ package WebSphere::MQTT::Client;
 
 use strict;
 use Sys::Hostname;
-use Data::Dumper;
+use Time::HiRes;
 use XSLoader;
 use Carp;
 
@@ -82,7 +82,7 @@ sub new {
 	$self->xs_start_tasks() or die("xs_start_tasks() failed");
 
 	# Dump configuration if Debug is enabled
-	$self->dump_config();
+	$self->dump_config() if ($self->{'debug'});
 
 	return $self;
 }
@@ -91,11 +91,13 @@ sub new {
 sub dump_config {
 	my $self = shift;
 	
+	print "\n";
 	print "WebSphere::MQTT::Client config\n";
 	print "==============================\n";
 	foreach( sort keys %$self ) {
 		printf(" %15s: %s\n", $_, $self->{$_});
 	}
+	print "\n";
 
 }
 
@@ -118,21 +120,42 @@ sub connect {
 	my $self = shift;	
 	
 	# Connect
-	my $rc = $self->xs_connect( $self->{'api_task_info'} );
-				
-	print "\$rc = $rc\n";
+	my $result = $self->xs_connect( $self->{'api_task_info'} );
+	return $result unless($result eq 'OK');
 
+	# Print the result if debugging enabled
+	print "xs_connect: $result\n" if ($self->{'debug'});
+	
+	# Wait until we are connected
+	# FIXME: *with timeout*
+	my $state = 'CONNECTING';
+	while ($state eq 'CONNECTING') {
+		$state = $self->status();
+		sleep 0.5;
+	}
+	
+	# Failed to connect ?
+	if ($state ne 'CONNECTED') {
+		$self->disconnect();
+		return 'FAILED';
+	}
+	
+	# Success
+	return 0;
 }
 
 sub disconnect {
 	my $self = shift;
 
-    print "Hello from disconnect()\n";
-
 	# Disconnect
-	my $rc = $self->xs_disconnect();
+	my $result = $self->xs_disconnect();
+	
+	# Print the result if debugging enabled
+	print "xs_disconnect: $result\n" if ($self->{'debug'});
 				
-	print "\$rc = $rc\n";
+	# Return 0 if result is OK
+	return 0 if ($result eq 'OK');
+	return $result;
 }
 
 sub publish {
@@ -147,11 +170,22 @@ sub publish {
 
 sub subscribe {
 	my $self = shift;
- 		# params for subscribe/publish
-#		'qos'			=> 0,			# quality of service (0/1/2)
-#		'topic'
+	my ($topic, $qos) = @_;
+	
+	croak("Usage: subscribe(topic, [qos])") unless (defined $topic);
+	$qos = 0 unless (defined $qos);
 
+	# Subscribe
+	my $result = $self->xs_subscribe( $topic, $qos );
+	
+	# Print the result if debugging enabled
+	print "xs_subscribe[$topic]: $result\n" if ($self->{'debug'});
+				
+	# Return 0 if result is OK
+	return 0 if ($result eq 'OK');
+	return $result;
 }
+
 
 sub receivePub {
 	my $self = shift;
@@ -161,35 +195,41 @@ sub receivePub {
 
 sub unsubscribe {
 	my $self = shift;
-#		'topic'
+	my ($topic) = @_;
+	
+	croak("Usage: unsubscribe(topic)") unless (defined $topic);
 
+	# Subscribe
+	my $result = $self->xs_unsubscribe( $topic );
+	
+	# Print the result if debugging enabled
+	print "xs_unsubscribe[$topic]: $result\n" if ($self->{'debug'});
+				
+	# Return 0 if result is OK
+	return 0 if ($result eq 'OK');
+	return $result;
 }
+
 
 sub status {
 	my $self = shift;
-	my $status = $self->xs_status();
-	
-	# Remove MQISDP_
-	$status =~ s/MQISDP_//g;
-	$status =~ tr/A-Z/a-z/;
-	
-	# Return 0 if OK
-	return 0 if ($status eq 'ok');
-	
-	# otherwise return the status message
-	return $status;
+	return $self->xs_status();
 }
 
 sub terminate {
 	my $self = shift;
 
-    print "Hello from terminate()\n";
-
+	# Disconnect first (if connected)
     if (exists $self->{'handle'} and defined $self->{'handle'}) {
     	$self->disconnect();
 	}
 
-	$self->xs_terminate();	
+	# Terminate threads and free memory
+	my $result = $self->xs_terminate();	
+	
+	# Return 0 if result is OK
+	return 0 if ($result eq 'OK');
+	return $result;
 }
 
 sub libversion {
@@ -199,8 +239,6 @@ sub libversion {
 
 sub DESTROY {
     my $self=shift;
-    
-    print "Hello from DESTROY()\n";
     
     $self->terminate();
 }

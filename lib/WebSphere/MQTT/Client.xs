@@ -98,38 +98,38 @@ const char*
 get_status_string( int statusCode ) {
 
  	switch(statusCode) {
-		STATUS_CASE_RET( MQISDP_OK );
-		STATUS_CASE_RET( MQISDP_PROTOCOL_VERSION_ERROR );
-		STATUS_CASE_RET( MQISDP_HOSTNAME_NOT_FOUND );
-		STATUS_CASE_RET( MQISDP_Q_FULL );
-		STATUS_CASE_RET( MQISDP_FAILED );
-		STATUS_CASE_RET( MQISDP_PUBS_AVAILABLE );
-		STATUS_CASE_RET( MQISDP_NO_PUBS_AVAILABLE );
-		STATUS_CASE_RET( MQISDP_PERSISTENCE_FAILED );
-		STATUS_CASE_RET( MQISDP_CONN_HANDLE_ERROR );
-		STATUS_CASE_RET( MQISDP_NO_WILL_TOPIC );
-		STATUS_CASE_RET( MQISDP_INVALID_STRUC_LENGTH );
-		STATUS_CASE_RET( MQISDP_DATA_LENGTH_ERROR );
-		STATUS_CASE_RET( MQISDP_DATA_TOO_BIG );
-		STATUS_CASE_RET( MQISDP_ALREADY_CONNECTED );
-		STATUS_CASE_RET( MQISDP_CONNECTION_BROKEN );
-		STATUS_CASE_RET( MQISDP_DATA_TRUNCATED );
-		STATUS_CASE_RET( MQISDP_CLIENT_ID_ERROR );
-		STATUS_CASE_RET( MQISDP_BROKER_UNAVAILABLE );
-		STATUS_CASE_RET( MQISDP_SOCKET_CLOSED );
-		STATUS_CASE_RET( MQISDP_OUT_OF_MEMORY );
+		case MQISDP_OK:						return "OK";
+		case MQISDP_PROTOCOL_VERSION_ERROR:	return "PROTOCOL_VERSION_ERROR";
+		case MQISDP_HOSTNAME_NOT_FOUND:		return "HOSTNAME_NOT_FOUND";
+		case MQISDP_Q_FULL:					return "Q_FULL";
+		case MQISDP_FAILED:					return "FAILED";
+		case MQISDP_PUBS_AVAILABLE:			return "PUBS_AVAILABLE";
+		case MQISDP_NO_PUBS_AVAILABLE:		return "NO_PUBS_AVAILABLE";
+		case MQISDP_PERSISTENCE_FAILED:		return "PERSISTENCE_FAILED";
+		case MQISDP_CONN_HANDLE_ERROR:		return "CONN_HANDLE_ERROR";
+		case MQISDP_NO_WILL_TOPIC:			return "NO_WILL_TOPIC";
+		case MQISDP_INVALID_STRUC_LENGTH:	return "INVALID_STRUC_LENGTH";
+		case MQISDP_DATA_LENGTH_ERROR:		return "DATA_LENGTH_ERROR";
+		case MQISDP_DATA_TOO_BIG:			return "DATA_TOO_BIG";
+		case MQISDP_ALREADY_CONNECTED:		return "ALREADY_CONNECTED";
+		case MQISDP_CONNECTION_BROKEN:		return "CONNECTION_BROKEN";
+		case MQISDP_DATA_TRUNCATED:			return "DATA_TRUNCATED";
+		case MQISDP_CLIENT_ID_ERROR:		return "CLIENT_ID_ERROR";
+		case MQISDP_BROKER_UNAVAILABLE:		return "BROKER_UNAVAILABLE";
+		case MQISDP_SOCKET_CLOSED:			return "SOCKET_CLOSED";
+		case MQISDP_OUT_OF_MEMORY:			return "OUT_OF_MEMORY";
  		
-		STATUS_CASE_RET( MQISDP_DELIVERED );
-		STATUS_CASE_RET( MQISDP_RETRYING );
-		STATUS_CASE_RET( MQISDP_IN_PROGRESS );
-		STATUS_CASE_RET( MQISDP_MSG_HANDLE_ERROR );
+		case MQISDP_DELIVERED:				return "DELIVERED";
+		case MQISDP_RETRYING:				return "RETRYING";
+		case MQISDP_IN_PROGRESS:			return "IN_PROGRESS";
+		case MQISDP_MSG_HANDLE_ERROR:		return "MSG_HANDLE_ERROR";
 		
-		STATUS_CASE_RET( MQISDP_CONNECTING );
-		STATUS_CASE_RET( MQISDP_CONNECTED );
-		STATUS_CASE_RET( MQISDP_DISCONNECTED );
+		case MQISDP_CONNECTING:				return "CONNECTING";
+		case MQISDP_CONNECTED:				return "CONNECTED";
+		case MQISDP_DISCONNECTED:			return "DISCONNECTED";
 	}
 	
-	return "MQISDP_UNKNOWN";
+	return "UNKNOWN";
 }
 
 
@@ -172,8 +172,6 @@ xs_start_tasks( self )
    	}
   	
   	
-  	fprintf(stderr, "xs_init: clientid=%s\n", clientid);
-	
 	/* Allocate the WMQTT thread parameter structures */
 	pSendTaskInfo = (MQISDPTI*)malloc( sizeof(MQISDPTI) );
 	pRcvTaskInfo = (MQISDPTI*)malloc( sizeof(MQISDPTI) );
@@ -226,7 +224,7 @@ xs_start_tasks( self )
 ##
 ## Get connection status
 ##
-SV*
+const char*
 xs_status( self )
 	HV* self
 
@@ -234,23 +232,29 @@ xs_status( self )
   	MQISDPCH	handle = NULL;
 	int			statusCode=0;
 	int			debug=0;
-	char        infoString[MQISDP_INFO_STRING_LENGTH];
+	char        infoString[MQISDP_INFO_STRING_LENGTH] = "";
 	const char	*statusString = NULL;
 	
   CODE:
   	/* get the connection handle */
   	handle = get_handle_from_hv( self );  
   	debug = get_debug_from_hv( self );
-  
- 	/* get the connection status */
- 	statusCode = MQIsdp_status( handle, MQISDP_RC_STRING_LENGTH, NULL, infoString );
- 	statusString = get_status_string( statusCode );
- 	 	
- 	if (debug) {
- 		fprintf(stderr, "xs_status: status=%s[%d] - %s\n", statusString, statusCode, infoString);
+  	
+  	/* Not connected ? */
+  	if (handle == NULL) {
+  		statusCode = MQISDP_DISCONNECTED;
+  	} else {
+		/* get the connection status */
+		statusCode = MQIsdp_status( handle, MQISDP_RC_STRING_LENGTH, NULL, infoString );
  	}
  	
-	RETVAL = newSVpv( statusString, 0 );
+ 	/* Turn status code into a string */
+ 	statusString = get_status_string( statusCode );
+ 	if (debug) {
+ 		fprintf(stderr, "xs_status: %s [%d] - %s\n", statusString, statusCode, infoString);
+ 	}
+ 	
+	RETVAL = statusString;
  	
   OUTPUT:
 	RETVAL
@@ -261,7 +265,7 @@ xs_status( self )
 ##
 ## Connect to broker
 ##
-int
+const char*
 xs_connect( self, pApiTaskInfo )
 	HV* self
    	MQISDPTI	*pApiTaskInfo
@@ -272,6 +276,7 @@ xs_connect( self, pApiTaskInfo )
   	long        connMsgLength = 0;
   	SV**		svp = NULL;
  	SV*			sv = NULL;
+ 	int			rc = MQISDP_FAILED;
   	
   CODE:
   	/* length of Connect Messgae */
@@ -322,7 +327,7 @@ xs_connect( self, pApiTaskInfo )
 	}
 
 	/* Perform the connect */
-	RETVAL = MQIsdp_connect( &handle, pCp, pApiTaskInfo );
+	rc = MQIsdp_connect( &handle, pCp, pApiTaskInfo );
 	free( pCp );
 
 
@@ -332,6 +337,9 @@ xs_connect( self, pApiTaskInfo )
 		croak("connection handle not stored");
 	}
 	
+	/* Return result code as a string */
+	RETVAL = get_status_string( rc );
+	
   OUTPUT:
 	RETVAL
 	
@@ -340,23 +348,26 @@ xs_connect( self, pApiTaskInfo )
 ##
 ## Disconnect from broker
 ##
-int
+const char*
 xs_disconnect( self )
 	HV* self
 
   PREINIT:
    	MQISDPCH	handle = NULL;
   	SV**		svp = NULL;
+ 	int			rc = MQISDP_FAILED;
 
   CODE:
   	/* get the connection handle */
   	handle = get_handle_from_hv( self );  	
   	
   	/* perform the disconnect */
-  	RETVAL = MQIsdp_disconnect( &handle );
+  	rc = MQIsdp_disconnect( &handle );
   	
   	/* Undef 'handle' if its value now NULL */
   	if (handle==NULL) hv_key_undef( self, "handle" );
+  	
+  	RETVAL = get_status_string( rc );
   	
   OUTPUT:
 	RETVAL
@@ -365,7 +376,7 @@ xs_disconnect( self )
 ##
 ## Free memory and Terminate threads
 ##
-int
+const char*
 xs_terminate( self )
 	HV* self
 
@@ -387,10 +398,129 @@ xs_terminate( self )
 	hv_key_undef( self, "send_task_info");
 	hv_key_undef( self, "recv_task_info");
 
-	/* Terminate threads */
-	RETVAL = MQIsdp_terminate();
+	/* Terminate threads and return result as a string */
+  	RETVAL = get_status_string( MQIsdp_terminate() );
   	
   OUTPUT:
 	RETVAL
 
+
+
+
+
+##
+## Subscribe to a topic
+##
+const char*
+xs_subscribe( self, topic, qos )
+	HV*		self
+	char*	topic
+	int		qos
+
+  PREINIT:
+  	MQISDPCH	handle = NULL;
+  	MQISDPMH	hMsg = NULL;
+  	SUB_PARMS	*pSp = NULL;
+	int			bufSize = 0;
+	int			rc = 0;
+	
+  CODE:
+  	/* get the connection handle */
+  	handle = get_handle_from_hv( self );  
+  	
+	/* Allocate memory for stucture */
+	bufSize = sizeof(SUB_PARMS) + (2 * sizeof(long)) + strlen(topic);
+	pSp = (SUB_PARMS*)malloc( bufSize );
+
+	if (pSp) {
+		char	*pTmpPtr = NULL;
+		long	options = 0;
+		long	tLength = 0;
+	
+		pSp->strucLength = bufSize;
+	
+        /* Set the topic length field */
+        pTmpPtr = (char*)pSp + sizeof(long);
+        tLength = strlen(topic);
+        memcpy( pTmpPtr, &tLength, sizeof(long) );
+
+        /* Set the topic field */
+        pTmpPtr += sizeof(long);
+        memcpy( pTmpPtr, topic, strlen(topic) );
+
+        /* Set the options field */
+        pTmpPtr += strlen(topic);
+        switch ( qos ) {
+			case 0: options |= MQISDP_QOS_0; break;
+			case 1: options |= MQISDP_QOS_1; break;
+			case 2: options |= MQISDP_QOS_2; break;
+        }
+        memcpy( pTmpPtr, &options, sizeof(long) );
+
+		/* Subscribe */
+		rc = MQIsdp_subscribe( handle, &hMsg, pSp );
+		free( pSp );
+
+	} else {
+		rc = MQISDP_OUT_OF_MEMORY;
+	}
+
+	RETVAL = get_status_string(rc);
+ 	
+  OUTPUT:
+	RETVAL
+ 	
+ 
+ 
+  
+##
+## Unsubscribe from a topic
+##
+const char*
+xs_unsubscribe( self, topic )
+	HV*		self
+	char*	topic
+
+  PREINIT:
+  	MQISDPCH	handle = NULL;
+  	MQISDPMH	hMsg = NULL;
+  	UNSUB_PARMS	*pUp = NULL;
+	int			bufSize = 0;
+	int			rc = 0;
+	
+  CODE:
+  	/* get the connection handle */
+  	handle = get_handle_from_hv( self );  
+  	
+	/* Allocate memory for stucture */
+	bufSize = sizeof(UNSUB_PARMS) + sizeof(long) + strlen(topic);
+	pUp = (UNSUB_PARMS*)malloc( bufSize );
+
+	if (pUp) {
+		char	*pTmpPtr = NULL;
+		long	tLength = 0;
+	
+		pUp->strucLength = bufSize;
+	
+        /* Set the topic length field */
+        pTmpPtr = (char*)pUp + sizeof(long);
+        tLength = strlen(topic);
+        memcpy( pTmpPtr, &tLength, sizeof(long) );
+
+        /* Set the topic field */
+        pTmpPtr += sizeof(long);
+        memcpy( pTmpPtr, topic, strlen(topic) );
+
+		/* Unsubscribe */
+		rc = MQIsdp_unsubscribe( handle, &hMsg, pUp );
+		free( pUp );
+
+	} else {
+		rc = MQISDP_OUT_OF_MEMORY;
+	}
+
+	RETVAL = get_status_string(rc);
+ 	
+  OUTPUT:
+	RETVAL
 
