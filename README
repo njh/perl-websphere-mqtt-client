@@ -1,8 +1,14 @@
-Net-MQTT version 0.01
-=====================
+WebSphere-MQTT version 0.01
+===========================
 
-Net::MQTT blah blah blah
+WebSphere::MQTT is a perl module that implements:
 
+	IBM's WebSphere MQ Telemetry Transport
+
+It uses the C source code provided by IBM in SupportPac IA93.
+
+This perl module is single threaded in the C code at the moment. 
+Persistance and LWT (Last Will and Testament) have also not been implemented.
 
 
 
@@ -24,12 +30,6 @@ INSTALLATION
 		libmodule-build-perl
 
 
-DEPENDENCIES
-
-	This module requires the Compress::Zlib module. It is available
-	as the Debian package libcompress-zlib-perl.
-	
-
 AUTHOR
 
 	Nicholas Humfrey, njh@ecs.soton.ac.uk
@@ -37,9 +37,6 @@ AUTHOR
 
 COPYRIGHT AND LICENSE
 
-	Copyright (C) 2004 University of Southampton
-
-	This library is free software; you can redistribute it and/or modify it
-	under the same terms as Perl itself, either Perl version 5.005 or, at
-	your option, any later version of Perl 5 you may have available.
+	Perl Code Copyright (C) 2004 University of Southampton
+	C Code in /src Copyright (C) 2002 IBM Corp.
 

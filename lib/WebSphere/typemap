@@ -1,2 +1,2 @@
 TYPEMAP
-mcast_socket_t *	T_PTROBJ
+MQISDPCH	T_PTROBJ

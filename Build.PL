@@ -5,12 +5,14 @@ use Module::Build;
 use English;
 use strict;
 
+
 # Threading is disabled for the time being
-my $CFLAGS = '-DMSP_SINGLE_THREAD -I.';
+my $CFLAGS = '-DMSP_SINGLE_THREAD';
 my $LDFLAGS = '';
 
 
 # Work out flags for different OSes
+# or use Module::Build::os_type() ?
 if ($OSNAME eq 'darwin') {
 	# Mac OS X
 	$CFLAGS .= ' -DUNIX';
@@ -35,7 +37,7 @@ if ($OSNAME eq 'darwin') {
 # Create the Build script
 my $build = Module::Build->new
 (
-	module_name => 'Net::MQTT',
+	module_name => 'WebSphere::MQTT',
 	license => 'restrictive',
 	script_files => [
 		'examples/subscribe.pl',

@@ -1,4 +1,4 @@
-package Net::MQTT;
+package WebSphere::MQTT;
 
 ################
 #
@@ -12,152 +12,80 @@ use strict;
 use XSLoader;
 use Carp;
 
-use vars qw/$VERSION $PORT/;
+use vars qw/$VERSION/;
 
 $VERSION="0.01";
 
-
-XSLoader::load('Net::MQTT', $VERSION);
+XSLoader::load('WebSphere::MQTT', $VERSION);
 
 
 
 sub new {
     my $class = shift;
-    my ($group) = @_;
+    my ($blah) = @_;
     
-    
-	# Work out the multicast group to use
-    croak "Missing group parameter" unless defined $group;
-    if (exists $groups{$group}) {
-    	$group = $groups{$group};
-    }
-
-
 	# Store parameters
     my $self = {
-    	'group'	=> $group,
-    	'port'	=> $PORT,
-    	'hops'	=> 127,
+    	'client_id'	=> undef,		# 23 chars
+    	'broker'	=> '127.0.0.1',	# default is this computer
+    	'port'		=> 1883,		# default port 1883
+    	'qos'		=> 0,			# quality of service (0/1/2)
+    	'timeout'	=> -1,			# forever
+    	'match'		=> undef,		# no data to match
+    	'debug'		=> 0,			# debugging disabled
     };
     
-    
-    # Create Multicast Socket using C code
-    $self->{'sock'} = _xs_socket_create(
-    	$self->{'group'},
-    	$self->{'port'},
-    	$self->{'hops'},
-    );
-    return undef unless (defined $self->{'sock'});
-    
-    
-    # Store the Socket family we ended up using
-    $self->{'family'} = _xs_socket_family( $self->{'sock'} );
-    
+
+	### blah ###    
 
     bless $self, $class;
 	return $self;
 }
 
+sub connect {
 
-#
-# Returns the multicast group the socket is bound to
-#
-sub group {
-	my $self = shift;
-	return $self->{'group'};
 }
 
-#
-# Blocks until a valid SAP packet is received
-#
-sub receive {
-	my $self = shift;
-	my $sap_packet = undef;
-	
-	
-	while(!defined $sap_packet) {
-	
-		# Recieve a packet	
-		my $packet = _xs_socket_recv( $self->{'sock'} );
-		next unless (defined $packet);
-		next unless (exists $packet->{'data'});
-		
-		# Create new packet object from the data we recieved
-		$sap_packet = new Net::SAP::Packet( $packet->{'data'} );
-		next unless (defined $sap_packet);
-		
-		# Correct the origin on Stupid packets !
-		if ($sap_packet->origin_address() eq '0.0.0.0' or
-			$sap_packet->origin_address() eq '1.2.3.4' )
-		{
-			$sap_packet->origin_address( $packet->{'from'} );
-		}
-	}
+sub disconnect {
 
-	return $sap_packet;
 }
 
+sub publish {
 
-sub send {
-	my $self = shift;
-	my ($packet) = @_;
-	
-	croak "Missing data to send." unless defined $packet;
-
-
-	# If it isn't a packet object, turn it into one	
-	if (ref $packet eq 'Net::SDP') {
-		my $data = $packet->generate();
-		$packet = new Net::SAP::Packet();
-		$packet->payload( $data );
-	}
-	elsif (ref $packet ne 'Net::SAP::Packet') {
-		my $data = $packet;
-		$packet = new Net::SAP::Packet();
-		$packet->payload( $data );
-	}
-
-
-	# Set the origin address, if there isn't one set
-	if ($packet->origin_address() eq '') {
-	
-		$packet->origin_address_type( $self->{'family'} );
-	
-		$packet->origin_address( 
-			_xs_origin_addr( $self->{'family'} )
-		);
-	}
-	
-	# Assemble and send the packet
-	my $data = $packet->generate();
-	if (!defined $data) {
-		warn "Failed to create binary packet.";
-		return -1;
-	} elsif (length $data > 1024) {
-		warn "Packet is more than 1024 bytes, not sending.";
-		return -1;
-	} else {
-		return _xs_socket_send( $self->{'sock'}, $data );
-	}
 }
 
+sub subscribe {
+
+}
+
+sub unsubscribe {
+
+}
+
+sub status {
+
+}
+
+sub terminate {
+
+}
 
 sub close {
 	my $self=shift;
 	
 	# Close the multicast socket
-	_xs_socket_close( $self->{'sock'} );
+	#_xs_socket_close( $self->{'sock'} );
 	
-	undef $self->{'sock'};
+	#undef $self->{'sock'};
 }
 
 
 sub DESTROY {
     my $self=shift;
     
-    if (exists $self->{'sock'} and defined $self->{'sock'}) {
-    	$self->close();
-    }
+    #if (exists $self->{'sock'} and defined $self->{'sock'}) {
+    #	$self->close();
+    # }
 }
 
 
@@ -169,13 +97,13 @@ __END__
 
 =head1 NAME
 
-Net::MQTT - WebSphere MQ Telemetry Transport
+WebSphere::MQTT - WebSphere MQ Telemetry Transport
 
 =head1 SYNOPSIS
 
-  use Net::MQTT;
+  use WebSphere::MQTT;
 
-  my $sap = Net::SAP->new( 'ipv6-global' );
+  my $sap = WebSphere::MQTT->new( 'ipv6-global' );
 
   my $packet = $sap->receive();
 
