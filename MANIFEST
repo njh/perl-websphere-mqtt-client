@@ -6,7 +6,6 @@ lib/Net/MQTT.pm
 lib/Net/MQTT.xs
 lib/Net/typemap
 src/MQIsdp.h
-src/Makefile
 src/mspclnt.c
 src/mspclnt.h
 src/mspdmn.c
