@@ -35,12 +35,12 @@ static char *sccsid = "WMQtt C library SCCSID: @(#) IA93/ship/mspsh.c, SupportPa
 
 /* Memory allocation function used throughout the reference code base. */
 DllExport void* mspMalloc( MSPCMN *cData, size_t size ) {
+    void *m = malloc( size );
+
+	/* Zero the memory */
+	bzero(m, size);
 
     #if MSP_DEBUG_MEM > 0
-    void *m = NULL;
-    
-    m = malloc( size );
-
     if ( m != NULL ) {
       if ( cData != NULL ) {
           cData->mc++;
@@ -53,10 +53,9 @@ DllExport void* mspMalloc( MSPCMN *cData, size_t size ) {
       printf( "Malloced:%p\n", m );
       #endif
     }
-    return m;
-    #else 
-    return malloc( size );
     #endif
+    
+    return m;
 }
 
 /* Memory re-allocation function used throughout the reference code base. */
