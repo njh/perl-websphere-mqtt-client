@@ -24,15 +24,14 @@ XSLoader::load('WebSphere::MQTT::Client', $VERSION);
 
 sub new {
     my $class = shift;
-    my ($hostname, %args) = @_;
+    my (%args) = @_;
     
  	# Store parameters
     my $self = {
-    	'hostname'		=> '127.0.0.1',	# broker's hostname (localhost)
-    	'port'			=> 1883,		# broker's port
-    	'clientid'		=> undef,		# our client ID
-    	'timeout'		=> -1,			# receive messages forever
-    	'debug'			=> 0,			# debugging disabled
+    	'host'		=> '127.0.0.1',	# broker's hostname (localhost)
+    	'port'		=> 1883,		# broker's port
+    	'clientid'	=> undef,		# our client ID
+    	'debug'		=> 0,			# debugging disabled
   	
  
     	# Advanced options (with sensible defaults)
@@ -42,8 +41,10 @@ sub new {
     	'retry_interval' => 10,
 
 		# Used internally only    	
-  		'handle'	=> undef,			# Connection Handle
-
+  		'handle'			=> undef,			# Connection Handle
+ 		'send_task_info'	=> undef,			# Send Thread Parameters
+ 		'recv_task_info'	=> undef,			# Receive Thread Parameters
+		'api_task_info'		=> undef,			# API Thread Parameters
 
 		# TODO: LWT stuff
 		#'lwt_enabled'	=> 0,
@@ -54,18 +55,16 @@ sub new {
 
     };
     
-    
-    # Host specified ?
-    if (defined $hostname) {
-    	$self->{'hostname'} = $hostname;
-    }
-    
-    # Other arguments ?
+    # Bless the hash into an object
+    bless $self, $class;
+
+    # Arguments specified ?
     if (defined %args) {
 		foreach (keys %args) {
 			my $key = $_;
 			$key =~ tr/A-Z/a-z/;
-			$key =~ s/\W//g;
+			$key =~ s/\W/_/g;
+			$key = 'host' if ($key eq 'hostname');
 			$self->{$key} = $args{$_};
 		}
     }
@@ -79,37 +78,35 @@ sub new {
     	$self->{'clientid'} = substr($host, 0, 22-length($$)).'-'.$$;
     }
 
-	## TODO: create threads here
+	# Start threads (if enabled)
+	$self->xs_start_tasks() or die("xs_start_tasks() failed");
 
-    bless $self, $class;
+	# Dump configuration if Debug is enabled
+	$self->dump_config();
+
 	return $self;
 }
 
-sub print_config {
-	my $self = shift;
 
-	printf("Client ID      :%s\n", $self->{'clientid'});
-	printf("Broker         :%s\n", $self->{'hostname'});
-	printf("Port           :%d\n", $self->{'port'});
-	printf("Timeout        :%d\n", $self->{'timeout'});
-	printf("Debug          :%s\n", $self->{'debug'});
-	printf("Clean Start    :%d\n", $self->{'clean_start'});
-	printf("Keep Alive     :%d\n", $self->{'keep_alive'});
-	printf("Retry Count    :%d\n", $self->{'retry_count'});
-	printf("Retry Interval :%d\n", $self->{'retry_interval'});
+sub dump_config {
+	my $self = shift;
+	
+	print "WebSphere::MQTT::Client config\n";
+	print "==============================\n";
+	foreach( sort keys %$self ) {
+		printf(" %15s: %s\n", $_, $self->{$_});
+	}
 
 }
+
 
 sub debug {
 	my $self = shift;
 	my ($debug) = @_;
 	
 	if (defined $debug) {
-		if ($debug) {
-			$self->{'debug'} = 1;
-		} else {
-			$self->{'debug'} = 0;
-		}
+		if ($debug) { $self->{'debug'} = 1; }
+		else		{ $self->{'debug'} = 0; }
 	}
 	
 	return $self->{'debug'};
@@ -118,14 +115,24 @@ sub debug {
 
 
 sub connect {
-	my $self = shift;
+	my $self = shift;	
 	
-	
+	# Connect
+	my $rc = $self->xs_connect( $self->{'api_task_info'} );
+				
+	print "\$rc = $rc\n";
+
 }
 
 sub disconnect {
 	my $self = shift;
 
+    print "Hello from disconnect()\n";
+
+	# Disconnect
+	my $rc = $self->xs_disconnect();
+				
+	print "\$rc = $rc\n";
 }
 
 sub publish {
@@ -136,48 +143,66 @@ sub publish {
     									#   another publication is received 
     									#   for the same topic.  
 
-
 }
 
 sub subscribe {
 	my $self = shift;
  		# params for subscribe/publish
 #		'qos'			=> 0,			# quality of service (0/1/2)
-#    	'match'			=> undef,		# only receive messages which look like this
+#		'topic'
 
 }
 
 sub receivePub {
 	my $self = shift;
+#    	'match'			=> undef,		# only receive messages which look like this
 
 }
 
 sub unsubscribe {
 	my $self = shift;
+#		'topic'
 
 }
 
 sub status {
 	my $self = shift;
-
+	my $status = $self->xs_status();
+	
+	# Remove MQISDP_
+	$status =~ s/MQISDP_//g;
+	$status =~ tr/A-Z/a-z/;
+	
+	# Return 0 if OK
+	return 0 if ($status eq 'ok');
+	
+	# otherwise return the status message
+	return $status;
 }
 
 sub terminate {
 	my $self = shift;
 
+    print "Hello from terminate()\n";
+
+    if (exists $self->{'handle'} and defined $self->{'handle'}) {
+    	$self->disconnect();
+	}
+
+	$self->xs_terminate();	
 }
 
 sub libversion {
-	return eval { _xs_version(); };
+	return eval { xs_version(); };
 }
 
 
 sub DESTROY {
     my $self=shift;
     
-    #if (exists $self->{'handle'} and defined $self->{'handle'}) {
-    #	$self->disconnect();
-    # }
+    print "Hello from DESTROY()\n";
+    
+    $self->terminate();
 }
 
 

@@ -61,7 +61,9 @@ HCONNCB *mspInitialise( MQISDPTI *pTaskInfo ) {
     
     /* Initialise common parms */
     pHconn->comParms.memLimit = 0;
-    pHconn->comParms.mspLogOptions = pTaskInfo->logLevel;
+    if ( pTaskInfo ) {
+    	pHconn->comParms.mspLogOptions = pTaskInfo->logLevel;
+    }
     #if MSP_DEBUG_MEM > 0
     pHconn->comParms.memMax = 0;
     pHconn->comParms.memCount = 0;
