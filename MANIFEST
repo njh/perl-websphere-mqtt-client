@@ -2,9 +2,9 @@ doc/cat2license.pdf
 doc/cat2license.txt
 doc/ia93.pdf
 doc/ia93_Porting.pdf
-lib/WebSphere/MQTT.pm
-lib/WebSphere/MQTT.xs
-lib/WebSphere/typemap
+lib/WebSphere/MQTT/Client.pm
+lib/WebSphere/MQTT/Client.xs
+lib/WebSphere/MQTT/typemap
 src/MQIsdp.h
 src/mspclnt.c
 src/mspclnt.h

@@ -1,6 +1,6 @@
 /*
 
-	WebSphere WebSphere MQ Telemetry Transport
+	WebSphere MQ Telemetry Transport
 	Perl Interface to IA93
 
 	Nicholas Humfrey
@@ -17,7 +17,7 @@
 #include "MQIsdp.h"
 
 
-MODULE = WebSphere::MQTT	PACKAGE = WebSphere::MQTT
+MODULE = WebSphere::MQTT::Client	PACKAGE = WebSphere::MQTT::Client
 
 
 ##

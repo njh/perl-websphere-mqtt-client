@@ -1,4 +1,4 @@
-package WebSphere::MQTT;
+package WebSphere::MQTT::Client;
 
 ################
 #
@@ -16,23 +16,39 @@ use vars qw/$VERSION/;
 
 $VERSION="0.01";
 
-XSLoader::load('WebSphere::MQTT', $VERSION);
+XSLoader::load('WebSphere::MQTT::Client', $VERSION);
 
 
 
 sub new {
     my $class = shift;
-    my ($blah) = @_;
+    my ($hostname, $port) = @_;
     
 	# Store parameters
     my $self = {
-    	'client_id'	=> undef,		# 23 chars
-    	'broker'	=> '127.0.0.1',	# default is this computer
-    	'port'		=> 1883,		# default port 1883
-    	'qos'		=> 0,			# quality of service (0/1/2)
-    	'timeout'	=> -1,			# forever
-    	'match'		=> undef,		# no data to match
-    	'debug'		=> 0,			# debugging disabled
+    	'hostname'		=> '127.0.0.1',	# broker's hostname (localhost)
+    	'port'			=> 1883,		# broker's port
+    	'timeout'		=> -1,			# receive messages forever
+    	'debug'			=> 0,			# debugging disabled
+  	
+  		'conn_handle'	=> undef,		# Connection Handle
+ 
+    	# Advanced options (with sensible defaults)
+    	'clean_start'	=> 1,			# set CleanStart flag ?
+    	'keep_alive'	=> 10,			# timeout (in seconds) for receiving data
+    	'retry_count'	=> 10,
+    	'retry_interval' => 10,
+    	'retain',		=> 0,			# broker will retain messgae until 
+    									#   another publication is received 
+    									#   for the same topic.  
+    	
+		# LWT stuff:
+		#'lwt_enabled'	=> 0,
+		#'lwt_message'	=> undef,
+		#'lwt_qos'		=> 0,
+		#'lwt_topic'	=> undef,
+		#'lwt_retain'	=> 0,
+
     };
     
 
@@ -42,19 +58,52 @@ sub new {
 	return $self;
 }
 
-sub connect {
 
+sub debug {
+	my $self = shift;
+	my ($debug) = @_;
+	
+	if (defined $debug) {
+		if ($debug) {
+			$self->{'debug'} = 1;
+		} else {
+			$self->{'debug'} = 0;
+		}
+	}
+	
+	return $self->{'debug'};
+}
+
+
+
+sub connect {
+	my $self = shift;
+	my ($client_id) = @_;
+	
+	# Max 23 characters
+	
+	
 }
 
 sub disconnect {
+	my $self = shift;
 
 }
 
 sub publish {
+ 		# params for subscribe/publish
+#		'qos'			=> 0,			# quality of service (0/1/2)
 
 }
 
 sub subscribe {
+ 		# params for subscribe/publish
+#		'qos'			=> 0,			# quality of service (0/1/2)
+#    	'match'			=> undef,		# only receive messages which look like this
+
+}
+
+sub receivePub {
 
 }
 
@@ -97,29 +146,28 @@ __END__
 
 =head1 NAME
 
-WebSphere::MQTT - WebSphere MQ Telemetry Transport
+WebSphere::MQTT::Client - WebSphere MQ Telemetry Transport Client
 
 =head1 SYNOPSIS
 
-  use WebSphere::MQTT;
+  use WebSphere::MQTT::Client;
 
-  my $sap = WebSphere::MQTT->new( 'ipv6-global' );
+  my $mqtt = WebSphere::MQTT::Client->new( 'localhost' );
 
-  my $packet = $sap->receive();
-
-  $sap->close();
+  $mqtt->disconnect();
 
 
 =head1 DESCRIPTION
 
-Net::SAP allows receiving and sending of SAP (RFC2974) 
-multicast packets over IPv4 and IPv6.
+WebSphere::MQTT::Client
+
+Publish and Subscribe to broker.
 
 =head2 METHODS
 
 =over 4
 
-=item $sap = Net::SAP->new( $group )
+=item $mqtt = WebSphere::MQTT::Client->new( $host, $port )
 
 The new() method is the constructor for the C<Net::SAP> class.
 You must specify the SAP multicast group you want to join:

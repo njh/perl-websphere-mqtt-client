@@ -1,9 +1,11 @@
-WebSphere-MQTT version 0.01
-===========================
+WebSphere-MQTT-Client version 0.01
+==================================
 
-WebSphere::MQTT is a perl module that implements:
+WebSphere::MQTT::Client is a perl module that talks:
 
 	IBM's WebSphere MQ Telemetry Transport
+
+to a broker.
 
 It uses the C source code provided by IBM in SupportPac IA93.
 

@@ -37,7 +37,7 @@ if ($OSNAME eq 'darwin') {
 # Create the Build script
 my $build = Module::Build->new
 (
-	module_name => 'WebSphere::MQTT',
+	module_name => 'WebSphere::MQTT::Client',
 	license => 'restrictive',
 	script_files => [
 		'examples/subscribe.pl',
