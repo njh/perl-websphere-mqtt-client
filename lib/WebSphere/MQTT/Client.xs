@@ -86,6 +86,55 @@ hv_key_undef( HV* hash, char* key ) {
 }
 
 
+/* Make an array from pubOptions */
+AV*
+options_to_av( long pubOptions ) {
+	SV* sv = NULL;
+	AV* av = newAV();
+	
+	if (pubOptions & MQISDP_WILL) {
+		sv = newSVpv( "WILL", 0 );
+		av_push( av, sv );
+	}
+	
+	if (pubOptions & MQISDP_RETAIN) {
+		sv = newSVpv( "RETAIN", 0 );
+		av_push( av, sv );
+	}
+	
+	if (pubOptions & MQISDP_QOS_0) {
+		sv = newSVpv( "QOS_0", 0 );
+		av_push( av, sv );
+	}
+	
+	if (pubOptions & MQISDP_QOS_1) {
+		sv = newSVpv( "QOS_1", 0 );
+		av_push( av, sv );
+	}
+	
+	if (pubOptions & MQISDP_QOS_2) {
+		sv = newSVpv( "QOS_2", 0 );
+		av_push( av, sv );
+	}
+	
+	if (pubOptions & MQISDP_CLEAN_START) {
+		sv = newSVpv( "CLEAN_START", 0 );
+		av_push( av, sv );
+	}
+	
+	if (pubOptions & MQISDP_WILL_RETAIN) {
+		sv = newSVpv( "WILL_RETAIN", 0 );
+		av_push( av, sv );
+	}
+	
+	if (pubOptions & MQISDP_DUPLICATE) {
+		sv = newSVpv( "DUPLICATE", 0 );
+		av_push( av, sv );
+	}
+
+	return av;
+}
+
 
 
 #define STATUS_CASE_RET( x ) \
@@ -523,4 +572,142 @@ xs_unsubscribe( self, topic )
  	
   OUTPUT:
 	RETVAL
+
+
+
+##
+## Recieve a publication
+##
+HV*
+xs_receivePub( self )
+	HV*		self
+
+  PREINIT:
+  	MQISDPCH	handle = NULL;
+  	HV			*hash = newHV();
+  	SV			*sv = NULL;
+  	AV			*av = NULL;
+  	
+	int			rc = 0;
+	int			stillWaiting = 1;
+	long		timeToWait = 10000;	// 10 Seconds
+	
+	long		dataLength = 0;
+	long		topicLength = 0;
+	long		pubOptions = 0;
+	long		bufferSz = 1024;
+	char		*pBuffer = NULL;
+
+
+  CODE:
+  	/* get the connection handle */
+  	handle = get_handle_from_hv( self );  
+  	
+  	
+  	/* Allocate some memory to store messgae */
+  	pBuffer = (char*)malloc( bufferSz );
+  	
+  	
+  	/* Wait for a message */
+  	while( stillWaiting )
+	{
+  		
+  		rc = MQIsdp_receivePub( handle, timeToWait, &pubOptions, &topicLength, &dataLength, bufferSz-1, pBuffer );
+
+		/* Not sure why this is required */
+		dataLength -= topicLength;
+
+  		switch( rc ) {
+  			case MQISDP_DATA_TRUNCATED:
+  				bufferSz = dataLength+topicLength+1;
+  				if (pBuffer == NULL) {
+  					pBuffer = (char*)malloc( bufferSz );
+  				} else {
+  					pBuffer = (char*)realloc( pBuffer, bufferSz );
+   				}
+  			break;
+  			
+  			case MQISDP_NO_PUBS_AVAILABLE:
+  				/* Do nothing */
+  			break;
+  			
+  			case MQISDP_PUBS_AVAILABLE:
+  			case MQISDP_OK:
+  			
+   				/* Store the options */
+   				sv = newRV_noinc((SV*)options_to_av( pubOptions ));
+  				if (hv_store(hash, "options", 7, sv, 0) == NULL) {
+					croak("xs_receivePub: options not stored");
+				}
+
+ 				/* Store the topic length */
+				sv=newSViv(topicLength);
+				if (hv_store(hash, "topic_length", 12, sv, 0) == NULL) {
+					croak("xs_receivePub: topic_length not stored");
+				}
+
+				/* Store the topic */
+				sv=newSVpv(pBuffer, topicLength);
+				if (hv_store(hash, "topic", 5, sv, 0) == NULL) {
+					croak("xs_receivePub: topic not stored");
+				}
+	
+				/* Store the data length */
+				sv=newSViv(dataLength);
+				if (hv_store(hash, "data_length", 8, sv, 0) == NULL) {
+					croak("xs_receivePub: data_length not stored");
+				}
+			
+				/* Store the data */
+				sv=newSVpv(pBuffer+topicLength, dataLength);
+				if (hv_store(hash, "data", 4, sv, 0) == NULL) {
+					croak("xs_receivePub: data not stored");
+				}
+
+  			default:
+  				
+				/* Store the status */
+				sv=newSVpv(get_status_string(rc), 0);
+				if (hv_store(hash, "status", 6, sv, 0) == NULL) {
+					croak("xs_receivePub: status not stored");
+				}
+ 				
+  				stillWaiting = 0;
+  			break;
+  		}
+  		
+   	}
+  	
+
+	/* Free the message buffer */
+	if (pBuffer) free( pBuffer );
+
+	RETVAL = hash;
+ 	
+  OUTPUT:
+	RETVAL
+
+
+
+##
+## Publish a message
+##
+const char *
+xs_publish( self, data, topic )
+	HV*		self
+	SV*		data
+	SV*		topic
+	
+	CODE:
+	
+	
+	
+	## foo
+	
+	
+	RETVAL = get_status_string(rc);
+ 	
+  OUTPUT:
+	RETVAL
+
 

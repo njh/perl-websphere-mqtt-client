@@ -15,7 +15,7 @@ use strict;
 my $mqtt = new WebSphere::MQTT::Client(
 	Hostname => 'smartlab.combe.chem.soton.ac.uk',
 	Port => 1883,
-#	Debug => 1,
+	Debug => 1,
 );
 
 
@@ -41,14 +41,21 @@ print "status=".$mqtt->status()."\n";
 sleep 2;
 
 
-# Subscribe to topic
+# Get Messages
+while( 1 ) {
+
+	my $res = $mqtt->receivePub();
+	#die "Failed to receivePub: $res\n" if ($res);
+	
+	print Dumper($res);
+}
+
+
+
+# Subscribe from topic
 my $res = $mqtt->unsubscribe( '#' );
 print "Unubscribe result=$res\n";
 
-
-# Disconnect from the broker
-my $res = $mqtt->disconnect();
-die "Failed to disconnect: $res\n" if ($res);
 
 sleep 2;
 

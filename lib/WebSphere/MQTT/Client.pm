@@ -189,8 +189,18 @@ sub subscribe {
 
 sub receivePub {
 	my $self = shift;
-#    	'match'			=> undef,		# only receive messages which look like this
+	my($match) = @_;	# only receive messages which look like this
+	
+#    	'match'			=> undef,		
+	my $result = $self->xs_receivePub();
 
+	# Print the result if debugging enabled
+	if ($self->{'debug'}) {
+		print "xs_receivePub[".$result->{'topic'}."]: ";
+		print $result->{'data'}."\n";
+	}
+
+	return ($result->{'topic'}, $result->{'data'}, $result->{'options'} );
 }
 
 sub unsubscribe {
