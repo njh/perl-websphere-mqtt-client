@@ -357,7 +357,7 @@ DllExport int MQIsdp_StartTasks( MQISDPTI *pApiTaskInfo,
                                  MQISDPTI *pRcvTaskInfo,
                                  char *pClientId );
 
-/* MQIsdp_terminate                         */
+/* MQIsdp_version                           */
 /* Version information is printed to stdout */
 /* Inputs : none                            */
 /* Returns: none                            */
