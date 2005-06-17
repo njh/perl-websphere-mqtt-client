@@ -689,25 +689,20 @@ xs_receivePub( self )
 
 
 
+####
+#### Publish a message
+####
+####const char *
+##xs_publish( self, data, topic )
+##	HV*		self
+##	SV*		data
+##	SV*		topic
+##	
+##	CODE:
+##	
+##	RETVAL = get_status_string(rc);
+## 	
+##  OUTPUT:
+##	RETVAL
 ##
-## Publish a message
-##
-const char *
-xs_publish( self, data, topic )
-	HV*		self
-	SV*		data
-	SV*		topic
-	
-	CODE:
-	
-	
-	
-	## foo
-	
-	
-	RETVAL = get_status_string(rc);
- 	
-  OUTPUT:
-	RETVAL
-
 

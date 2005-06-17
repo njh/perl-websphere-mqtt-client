@@ -44,10 +44,10 @@ sleep 2;
 # Get Messages
 while( 1 ) {
 
-	my $res = $mqtt->receivePub();
+	my @res = $mqtt->receivePub();
 	#die "Failed to receivePub: $res\n" if ($res);
 	
-	print Dumper($res);
+	print Dumper(@res);
 }
 
 

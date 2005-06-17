@@ -14,6 +14,13 @@ Persistance and LWT (Last Will and Testament) have also not been implemented.
 
 
 
+********
+Please note that this module is incomplete and does not include support
+for publishing to borker
+********
+
+
+
 INSTALLATION
 
 	I use Module::Build to build and install the module.
