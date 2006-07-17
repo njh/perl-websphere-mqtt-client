@@ -52,7 +52,7 @@ while( 1 ) {
 
 
 
-# Subscribe from topic
+# Unsubscribe from topic
 my $res = $mqtt->unsubscribe( '#' );
 print "Unubscribe result=$res\n";
 

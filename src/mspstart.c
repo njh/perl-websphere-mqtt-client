@@ -147,10 +147,12 @@ static int mspUnixStartTasks( MQISDPTI *pApiTaskInfo, MQISDPTI *pSendTaskInfo,
 
 void* mspUnixStartSendTask( void *pTaskInfo ) {
     MQIsdp_SendTask( (MQISDPTI*)pTaskInfo );
+    return NULL;
 }
 
 void* mspUnixStartRcvTask( void *pTaskInfo ) {
     MQIsdp_ReceiveTask( (MQISDPTI*)pTaskInfo );
+    return NULL;
 }
 
 #endif

@@ -4,6 +4,7 @@ doc/ia93.pdf
 doc/ia93_Porting.pdf
 lib/WebSphere/MQTT/Client.pm
 lib/WebSphere/MQTT/Client.xs
+lib/WebSphere/MQTT/Persist/File.pm
 lib/WebSphere/MQTT/typemap
 src/MQIsdp.h
 src/mspclnt.c
@@ -19,11 +20,17 @@ src/mspsh.h
 src/mspstart.c
 src/msptcp.c
 src/msputils.c
+src/ppersist.c
+src/ppersist.h
 t/00use.t
+t/01persistwrap.t
+t/02persistfile.t
+t/03timeout.t
 Changes
 MANIFEST
 README
 Build.PL
+Makefile.PL
 META.yml
 examples/publish.pl
 examples/subscribe.pl

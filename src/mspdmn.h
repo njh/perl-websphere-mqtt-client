@@ -17,7 +17,7 @@
 /* Function:                                                                */
 /*                                                                          */
 /* Header file defining various types of object as described above,         */
-/* function prototypes and some useful macros.
+/* function prototypes and some useful macros.                              */
 /*                                                                          */
 /****************************************************************************/
 /*                                                                          */

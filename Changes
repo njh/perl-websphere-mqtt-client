@@ -4,3 +4,12 @@ Revision history for Perl extension WebSphere::MQTT.
 0.01  Sun Jul 25 01:07:29 2004
 	First release
 	
+0.02  Mon Jul 17 13:46:00 2006
+	<B.Candler@pobox.com>
+	* Added publish capability
+	* Added persistence wrapper and Perl persistence module
+	* Added "async" connect option; allows publishing via persistence
+	  layer even when remote MQ server is down
+	* Some sanity checking when processing received publications
+	* Some fixes to compile cleanly with -Wall
+    * Added Makefile.PL shim

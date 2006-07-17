@@ -63,6 +63,8 @@ HCONNCB *mspInitialise( MQISDPTI *pTaskInfo ) {
     pHconn->comParms.memLimit = 0;
     if ( pTaskInfo ) {
     	pHconn->comParms.mspLogOptions = pTaskInfo->logLevel;
+    } else {
+    	pHconn->comParms.mspLogOptions = LOGNONE; /* -1 to enable all debugging */
     }
     #if MSP_DEBUG_MEM > 0
     pHconn->comParms.memMax = 0;
@@ -212,7 +214,7 @@ int mspHandleClientConnection( HCONNCB *pHconn) {
            /* then we need to try another connect.                          */
            if ( (pHconn->connState != MQISDP_CONNECTED) &&
                 ( (pHconn->reconnect.timeForNextConnect == 0) ||
-                  (time(NULL) > pHconn->reconnect.timeForNextConnect) ) ) {
+                  (time(NULL) >= pHconn->reconnect.timeForNextConnect) ) ) {
 
                /* If connRetries < 0 then we are running under clean start     */
                /* so the application needs to explicitly reconnect and         */
@@ -617,7 +619,7 @@ int mspSendConnStatusResponse( HCONNCB *pHconn, long bytesRead, char *pReadBuffe
     switch ( pHconn->tcpParms.lastError & MSP_GET_ERROR_TYPE ) {
     case 0:
         sprintf( pData, MSP_TCP_CONN_SUC_STR, pHconn->tcpParms.brokerAddress,
-                 pHconn->tcpParms.brokerPort );
+                 (long)pHconn->tcpParms.brokerPort );
     break;
     case MSP_CONN_ERROR:
         switch ( pHconn->tcpParms.lastError & MSP_GET_LAST_ERROR ) {
@@ -641,16 +643,16 @@ int mspSendConnStatusResponse( HCONNCB *pHconn, long bytesRead, char *pReadBuffe
         }
     break;  
     case MSP_TCP_SEND_ERROR:
-      sprintf( pData, MSP_TCP_SEND_ERR_STR, pHconn->tcpParms.lastError & MSP_GET_LAST_ERROR );
+      sprintf( pData, MSP_TCP_SEND_ERR_STR, (long)(pHconn->tcpParms.lastError & MSP_GET_LAST_ERROR) );
     break;
     case MSP_TCP_RECV_ERROR:
-        sprintf( pData, MSP_TCP_RECV_ERR_STR, pHconn->tcpParms.lastError & MSP_GET_LAST_ERROR );
+        sprintf( pData, MSP_TCP_RECV_ERR_STR, (long)(pHconn->tcpParms.lastError & MSP_GET_LAST_ERROR) );
     break;
     case MSP_TCP_CONN_ERROR:
-        sprintf( pData, MSP_TCP_CONN_ERR_STR, pHconn->tcpParms.lastError & MSP_GET_LAST_ERROR );
+        sprintf( pData, MSP_TCP_CONN_ERR_STR, (long)(pHconn->tcpParms.lastError & MSP_GET_LAST_ERROR) );
     break;
     case MSP_TCP_SOCK_ERROR:
-        sprintf( pData, MSP_TCP_SOCK_ERR_STR, pHconn->tcpParms.lastError & MSP_GET_LAST_ERROR );
+        sprintf( pData, MSP_TCP_SOCK_ERR_STR, (long)(pHconn->tcpParms.lastError & MSP_GET_LAST_ERROR) );
     break;
     case MSP_TCP_HOST_ERROR:
         strcpy( pData, MSP_MQISDP_HOST_ERR_STR );

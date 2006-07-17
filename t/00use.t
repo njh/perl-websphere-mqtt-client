@@ -19,17 +19,21 @@ ok(1);
 
 
 # Now try creating a new WebSphere::MQTT::Client object
-my $mqtt = WebSphere::MQTT::Client->new();
+my $mqtt = WebSphere::MQTT::Client->new(
+        #Debug => 1,
+        Hostname => '127.0.0.1',
+        Port => 59999,
+	retry_count => 0,
+	retry_interval => 0,
+);
 
 ok( $mqtt );
 
+my $rc = $mqtt->connect();
+ok( $rc eq 'FAILED' );
 
-
-# Close the socket
-$mqtt->close();
-
-ok(1);
-
+#$mqtt->disconnect();
+#ok( 1 );
 
 exit;
 

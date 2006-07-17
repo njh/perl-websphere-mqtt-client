@@ -144,7 +144,7 @@ void* mspBuildScadaConnectMsg( HCONNCB *pHconn, long bufLength,
             *tmpPtr |= MSPC_CLEAN_START;
             /* If we are using clean start then the protocol library        */
             /* should not attempt to reconnect on behalf of the application */
-            /* becuase the protocol library does not know what subscriptions*/
+            /* because the protocol library does not know what subscriptions*/
             /* to register on behalf of the application.                    */
             pHconn->reconnect.connRetries = -1;
         } else {
@@ -634,7 +634,8 @@ int mspReceiveScadaMessage( HCONNCB *pHconn, long bytesRead, char *pReadBuffer )
         }
         break;
     case MSP_PUBREC:
-        if ( mspDecodeFHeaderLength( bytesRead - 1, &rlBytes, &rLength, pReadBuffer + 1 ) != -1 ) {
+        if ( mspDecodeFHeaderLength( bytesRead - 1, &rlBytes, &rLength, pReadBuffer + 1 ) != -1
+          && rlBytes + rLength <= bytesRead - 1 ) {
             memcpy( &wmqttMsgId, pReadBuffer + 1 + rlBytes, sizeof(u_short) );
             /* Swap the bytes from network to host order */
             wmqttMsgId = ntohs( wmqttMsgId );
@@ -650,7 +651,8 @@ int mspReceiveScadaMessage( HCONNCB *pHconn, long bytesRead, char *pReadBuffer )
         }
         break;
     case MSP_PUBREL:
-        if ( mspDecodeFHeaderLength( bytesRead - 1, &rlBytes, &rLength, pReadBuffer + 1 ) != -1 ) {
+        if ( mspDecodeFHeaderLength( bytesRead - 1, &rlBytes, &rLength, pReadBuffer + 1 ) != -1
+          && rlBytes + rLength <= bytesRead - 1 ) {
             memcpy( &wmqttMsgId, pReadBuffer + 1 + rlBytes, sizeof(u_short) );
             /* Swap the bytes from network to host order */
             wmqttMsgId = ntohs( wmqttMsgId );
@@ -712,7 +714,8 @@ int mspReceiveScadaMessage( HCONNCB *pHconn, long bytesRead, char *pReadBuffer )
             mspLog( LOGSCADA, &(pHconn->comParms), "UNSUBACK received\n" );
             l=1;
         }
-        if ( mspDecodeFHeaderLength( bytesRead - 1, &rlBytes, &rLength, pReadBuffer + 1 ) != -1 ) {
+        if ( mspDecodeFHeaderLength( bytesRead - 1, &rlBytes, &rLength, pReadBuffer + 1 ) != -1
+          && rlBytes + rLength <= bytesRead - 1 ) {
             memcpy( &wmqttMsgId, pReadBuffer + 1 + rlBytes, sizeof(u_short) );
             /* Swap the bytes from network to host order */
             wmqttMsgId = ntohs( wmqttMsgId );
@@ -1004,7 +1007,8 @@ RPQ* mspStorePublication( HCONNCB *pHconn, long bytesRead, char *pReadBuffer, u_
         return NULL;
     }
 
-    if ( mspDecodeFHeaderLength( bytesRead - 1, &rlBytes, &rLength, pReadBuffer + 1 ) != -1 ) {
+    if ( mspDecodeFHeaderLength( bytesRead - 1, &rlBytes, &rLength, pReadBuffer + 1 ) != -1
+      && rlBytes + rLength <= bytesRead - 1 /* Sanity check */ ) {
     
        pRpqEntry->options = 0;
        *wmqttMsgId = 0;
@@ -1041,6 +1045,11 @@ RPQ* mspStorePublication( HCONNCB *pHconn, long bytesRead, char *pReadBuffer, u_
        tmpPtr += pRpqEntry->topicLength + 2;
 
        if ( (pReadBuffer[0] & MSPF_QOS_2) || (pReadBuffer[0] & MSPF_QOS_1) ) {
+           /* Sanity check */
+           if (tmpPtr + sizeof(u_short) > pReadBuffer + bytesRead) {
+               mspFree( &(pHconn->comParms), pRpqEntry, sizeof(RPQ) );
+               return NULL;
+           }
            /* Get the message id */
            memcpy( wmqttMsgId, tmpPtr, sizeof(u_short) );
            (*wmqttMsgId) = ntohs( *wmqttMsgId );
@@ -1054,6 +1063,14 @@ RPQ* mspStorePublication( HCONNCB *pHconn, long bytesRead, char *pReadBuffer, u_
            pRpqEntry->bufferLength = rLength - 2;
        }
 
+       /* Sanity check the two upcoming memcpy's */
+       if (topicPtr + pRpqEntry->topicLength > pReadBuffer + bytesRead
+       ||  pRpqEntry->bufferLength - pRpqEntry->topicLength < 0
+       ||  tmpPtr + (pRpqEntry->bufferLength - pRpqEntry->topicLength) > pReadBuffer + bytesRead) {
+           mspFree( &(pHconn->comParms), pRpqEntry, sizeof(RPQ) );
+           return NULL;
+       }
+       
        /* We have no more room to store publications, so free any storage */
        /* we have allocated and return NULL.                              */
        if ( pRpqEntry->bufferLength + sizeof(RPQ) > MSP_DEFAULT_MAX_INQ_SZ ) {

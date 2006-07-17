@@ -19,7 +19,7 @@
 /* The main functions that are exposed to callers are mspTCPReadMsg,        */
 /* mspTCPWrite, mspTCPInitialise and mspTCPDisconnect.                      */
 /* All low level socket functions are wrapped e.g. socket() is wrapped by   */
-/* msp_socket() to assist with masking platform differences.
+/* msp_socket() to assist with masking platform differences.                */
 /*                                                                          */
 /****************************************************************************/
 /*                                                                          */
@@ -32,6 +32,13 @@
 #include <mspdmn.h>
 #include <mspscada.h>
 
+#ifndef WIN32
+#ifdef MSP_SINGLE_THREAD
+#include <signal.h>
+static void connect_alarm(int s) { return; }
+#endif
+#endif
+
 /* Prototypes for wrapper functions of the standard socket functions */
 static int msp_socket( int af, int type, int protocol, int *pError );
 static int msp_inet_addr( const char *sp, struct in_addr *inadrp );
@@ -40,7 +47,6 @@ static int msp_close( int s );
 static int msp_send( int s, void *pBuf, int len, int flags, int *pError );
 static int msp_recv( int s, void *pBuf, int len, int flags, int *pError );
 static int mspTcpGetLastError( void );
-static int mspTcpGetErrno( void );
 
 /* Do DNS resolution                                              */
 /* Returns the dotted ip address (a.b.c.d) as a string on success */
@@ -151,7 +157,7 @@ int mspTCPDisconnect( int *pSockfd ) {
 int mspTCPWrite( HCONNCB *pHconn, size_t msgLen, char *msgData ) {
 
     size_t  nleft;
-    int     nwritten;
+    int     nwritten = 0;
     char   *ptr;
     int     mspErrno = 0;
 
@@ -429,7 +435,22 @@ static int msp_connect(int s, struct sockaddr *destaddr, int addrlen ) {
                return -1;
           else
               return 0;
-        #else 
+        #elif defined(MSP_SINGLE_THREAD) && defined(SIGALRM)
+          /* This is a frig to prevent blocking in connect() for several
+             minutes if the remote host is not reachable */
+          int rc;
+          struct sigaction act, oact;
+          memset(&act, 0, sizeof(act));
+          act.sa_handler = connect_alarm;
+          /* Note: don't set sa_flags = SA_RESTART */
+          sigaction(SIGALRM, &act, &oact);
+          alarm(15);
+          rc = connect( s, destaddr, addrlen );
+          alarm(0);
+          sigaction(SIGALRM, &oact, NULL);
+          if (rc < 0 && errno == EINTR) errno = ETIMEDOUT;
+          return rc;
+        #else
           return connect( s, destaddr, addrlen );
         #endif
     #endif
@@ -446,16 +467,6 @@ static int mspTcpGetLastError( void ) {
       #endif
     #endif  
 }
-
-#if !defined(MSP_FUSION_SOCKETS)
-static int mspTcpGetErrno( void ) {
-    #ifdef MSP_KN_SOCKETS
-        return kn_errno();
-    #else
-        return errno;
-    #endif  
-}
-#endif
 
 static int msp_close( int s ) {
     #ifdef MSP_KN_SOCKETS

@@ -1,4 +1,4 @@
-WebSphere-MQTT-Client version 0.01
+WebSphere-MQTT-Client version 0.02
 ==================================
 
 WebSphere::MQTT::Client is a perl module that talks:
@@ -7,17 +7,15 @@ WebSphere::MQTT::Client is a perl module that talks:
 
 to a broker.
 
-It uses the C source code provided by IBM in SupportPac IA93.
+It uses the C source code provided by IBM in SupportPac IA93, plus a new
+Perl implementation of persistence.
 
-This perl module is single threaded in the C code at the moment. 
-Persistance and LWT (Last Will and Testament) have also not been implemented.
+This perl module is single threaded in the C code at the moment; this means
+that if the remote address is a blackhole, the API can block for several
+minutes while it attempts to connect.
 
+LWT (Last Will and Testament) has also not been implemented.
 
-
-********
-Please note that this module is incomplete and does not include support
-for publishing to borker
-********
 
 
 
@@ -39,13 +37,15 @@ INSTALLATION
 		libmodule-build-perl
 
 
-AUTHOR
+AUTHORS
 
 	Nicholas Humfrey, njh@ecs.soton.ac.uk
-
+	Brian Candler, B.Candler@pobox.com (version 0.02 changes)
 
 COPYRIGHT AND LICENSE
 
 	Perl Code Copyright (C) 2005 University of Southampton
-	C Code in /src Copyright (C) 2002, 2003 IBM Corp.
+	C Code in /src Copyright (C) 2002, 2003 IBM Corp, except
+	/lib/WebSphere/MQTT/Persist/File.pm and
+	/src/ppersist.{c,h} which are Copyright (C) 2006 Brian Candler
 

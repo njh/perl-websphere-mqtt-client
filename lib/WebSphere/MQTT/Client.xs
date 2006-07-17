@@ -15,6 +15,7 @@
 
 /* WMQTT include */
 #include "MQIsdp.h"
+#include "ppersist.h"
 
 
 
@@ -25,7 +26,7 @@ get_handle_from_hv( HV* hash ) {
 	IV pointer;
 	
 	svp = hv_fetch( hash, "handle", 6, 0 );
-	if (svp == NULL) {
+	if (svp == NULL || !SvOK(*svp)) {
 		warn("Connection handle is missing from hash");
 		return NULL;
 	}
@@ -63,7 +64,7 @@ get_task_info_from_hv( HV* hash, char* name ) {
 	IV pointer;
 	
 	svp = hv_fetch( hash, name, strlen(name), 0 );
-	if (svp == NULL) return NULL;
+	if (svp == NULL || !SvOK(*svp)) return NULL;
 	if (!sv_derived_from(*svp, "MQISDPTIPtr")) return NULL;
 
 	// Re-reference and extract the pointer
@@ -80,9 +81,9 @@ hv_key_undef( HV* hash, char* key ) {
 	svp = hv_fetch( hash, key, strlen(key), 0 );
 	if (svp) {
 		sv_setsv(*svp, &PL_sv_undef);
-	} else {
+	} /* else {
 		warn("hv_key_undef: Didn't find key in hash");
-	}	
+	} */
 }
 
 
@@ -278,7 +279,7 @@ xs_status( self )
 	HV* self
 
   PREINIT:
-  	MQISDPCH	handle = NULL;
+  	MQISDPCH	handle = MQISDP_INV_CONN_HANDLE;
 	int			statusCode=0;
 	int			debug=0;
 	char        infoString[MQISDP_INFO_STRING_LENGTH] = "";
@@ -321,7 +322,7 @@ xs_connect( self, pApiTaskInfo )
 
  PREINIT:
   	CONN_PARMS	*pCp = NULL;
-  	MQISDPCH	handle = NULL;
+  	MQISDPCH	handle = MQISDP_INV_CONN_HANDLE;
   	long        connMsgLength = 0;
   	SV**		svp = NULL;
  	SV*			sv = NULL;
@@ -352,7 +353,7 @@ xs_connect( self, pApiTaskInfo )
 
     svp = hv_fetch( self, "keep_alive", 10, 0 );
     if (svp && SvIOK(*svp))	pCp->keepAliveTime = SvIV(*svp);
-	else		croak("'retry_interval' setting isn't available");
+	else		croak("'keep_alive' setting isn't available");
 
     svp = hv_fetch( self, "host", 4, 0 );
     if (svp && SvPOK(*svp))	pCp->brokerHostname = SvPV_nolen(*svp);
@@ -362,9 +363,18 @@ xs_connect( self, pApiTaskInfo )
     if (svp && SvIOK(*svp))	pCp->brokerPort = SvIV(*svp);
 	else		croak("'port' setting isn't available");
 
-
-	/* No Persistence yet */
-	pCp->pPersistFuncs = NULL;	
+    svp = hv_fetch( self, "persist", 7, 0 );
+    if (svp && SvOK(*svp)) {
+		if (sv_isobject(*svp)) {
+			pCp->pPersistFuncs = new_persistence_wrapper(*svp);
+			sv=sv_setref_pv(newSV(0), "MQISDPTIPtr", (void *)pCp->pPersistFuncs);
+			if (hv_store(self, "persist_info", 12, sv, 0) == NULL) {
+				croak("persist_info not stored");
+			}
+		}
+		else	croak("'persist' setting must be an object");
+    }
+    else	pCp->pPersistFuncs = NULL;
 
 	/* Set options flags */
 	pCp->options = MQISDP_NONE;
@@ -402,20 +412,21 @@ xs_disconnect( self )
 	HV* self
 
   PREINIT:
-   	MQISDPCH	handle = NULL;
-  	SV**		svp = NULL;
+   	MQISDPCH	handle = MQISDP_INV_CONN_HANDLE;
  	int			rc = MQISDP_FAILED;
 
   CODE:
   	/* get the connection handle */
   	handle = get_handle_from_hv( self );  	
+
+	if (handle) {  	
+  		/* perform the disconnect */
+  		rc = MQIsdp_disconnect( &handle );
   	
-  	/* perform the disconnect */
-  	rc = MQIsdp_disconnect( &handle );
-  	
-  	/* Undef 'handle' if its value now NULL */
-  	if (handle==NULL) hv_key_undef( self, "handle" );
-  	
+  		/* Undef 'handle' if its value now NULL */
+  		if (handle==MQISDP_INV_CONN_HANDLE) hv_key_undef( self, "handle" );
+	}
+  
   	RETVAL = get_status_string( rc );
   	
   OUTPUT:
@@ -430,22 +441,24 @@ xs_terminate( self )
 	HV* self
 
   PREINIT:
-	SV** svp = NULL;
 
   CODE:
   	MQISDPTI *pApiTaskInfo = get_task_info_from_hv( self, "api_task_info" );
   	MQISDPTI *pSendTaskInfo = get_task_info_from_hv( self, "send_task_info" );
-  	MQISDPTI *pRcvTaskInfo = get_task_info_from_hv( self, "recv_task_info`" );
+  	MQISDPTI *pRcvTaskInfo = get_task_info_from_hv( self, "recv_task_info" );
+  	MQISDPTI *pPersistInfo = get_task_info_from_hv( self, "persist_info" );
   
   	/* Free the memory */
   	if (pApiTaskInfo) free( pApiTaskInfo );
   	if (pSendTaskInfo) free( pSendTaskInfo );
   	if (pRcvTaskInfo) free( pRcvTaskInfo );
+	if (pPersistInfo) free( pPersistInfo );
 
 	/* Undef them in the hash */
 	hv_key_undef( self, "api_task_info");
 	hv_key_undef( self, "send_task_info");
 	hv_key_undef( self, "recv_task_info");
+	hv_key_undef( self, "persist_info");
 
 	/* Terminate threads and return result as a string */
   	RETVAL = get_status_string( MQIsdp_terminate() );
@@ -467,8 +480,8 @@ xs_subscribe( self, topic, qos )
 	int		qos
 
   PREINIT:
-  	MQISDPCH	handle = NULL;
-  	MQISDPMH	hMsg = NULL;
+  	MQISDPCH	handle = MQISDP_INV_CONN_HANDLE;
+  	MQISDPMH	hMsg = 0;
   	SUB_PARMS	*pSp = NULL;
 	int			bufSize = 0;
 	int			rc = 0;
@@ -531,8 +544,8 @@ xs_unsubscribe( self, topic )
 	char*	topic
 
   PREINIT:
-  	MQISDPCH	handle = NULL;
-  	MQISDPMH	hMsg = NULL;
+  	MQISDPCH	handle = MQISDP_INV_CONN_HANDLE;
+  	MQISDPMH	hMsg = 0;
   	UNSUB_PARMS	*pUp = NULL;
 	int			bufSize = 0;
 	int			rc = 0;
@@ -576,17 +589,16 @@ xs_unsubscribe( self, topic )
 
 
 ##
-## Recieve a publication
+## Receive a publication
 ##
 HV*
 xs_receivePub( self )
 	HV*		self
 
   PREINIT:
-  	MQISDPCH	handle = NULL;
+  	MQISDPCH	handle = MQISDP_INV_CONN_HANDLE;
   	HV			*hash = newHV();
   	SV			*sv = NULL;
-  	AV			*av = NULL;
   	
 	int			rc = 0;
 	int			stillWaiting = 1;
@@ -689,20 +701,58 @@ xs_receivePub( self )
 
 
 
-####
-#### Publish a message
-####
-####const char *
-##xs_publish( self, data, topic )
-##	HV*		self
-##	SV*		data
-##	SV*		topic
-##	
-##	CODE:
-##	
-##	RETVAL = get_status_string(rc);
-## 	
-##  OUTPUT:
-##	RETVAL
 ##
+## Publish a message
+##
+const char *
+xs_publish( self, data, topic, qos, retain)
+	HV*		self
+	char*		data
+	char*		topic
+	int		qos
+	int		retain
+	
+  PREINIT:
+  	MQISDPCH	handle = MQISDP_INV_CONN_HANDLE;
+  	MQISDPMH	hMsg = 0;
+  	PUB_PARMS	Pp;
+	int		rc = 0;
+	
+  CODE:
+	
+  	/* get the connection handle */
+  	handle = get_handle_from_hv( self );
+
+	Pp.strucLength = sizeof(PUB_PARMS);
+	
+	/* Set the options field */
+	Pp.options = MQISDP_NONE;
+	switch ( qos ) {
+			case 0: Pp.options |= MQISDP_QOS_0; break;
+			case 1: Pp.options |= MQISDP_QOS_1; break;
+			case 2: Pp.options |= MQISDP_QOS_2; break;
+	}
+	if ( retain ) {
+			Pp.options |= MQISDP_RETAIN;
+	}
+
+	/* Set the topic length field */
+	Pp.topicLength = strlen(topic);
+
+	/* Set the topic field */
+	Pp.topic = topic;
+
+	/* Set the data length field */
+	Pp.dataLength = strlen(data);
+
+	/* Set the data field */
+	Pp.data = data;
+
+	/* Publish */
+	rc = MQIsdp_publish( handle, &hMsg, &Pp );
+
+	RETVAL = get_status_string(rc);
+ 	
+  OUTPUT:
+	RETVAL
 

@@ -86,6 +86,10 @@
   #include <sys/sem.h>
   #include <stdarg.h>
   #include <signal.h>
+  #include <time.h>
+  #include <string.h>
+  #include <ctype.h>
+  #include <unistd.h>
   #ifndef MSP_SINGLE_THREAD
       #define POSIXTHREADS
       #include <pthread.h>

@@ -38,7 +38,7 @@ DllExport void* mspMalloc( MSPCMN *cData, size_t size ) {
     void *m = malloc( size );
 
 	/* Zero the memory */
-	bzero(m, size);
+	if (m != NULL) bzero(m, size);
 
     #if MSP_DEBUG_MEM > 0
     if ( m != NULL ) {
@@ -181,7 +181,7 @@ DllExport void mspLog( int logLevel, MSPCMN *cData, char *fmt, ... ) {
         #ifndef MSP_NO_LOCALTIME
         time( &timer );
 	    pCurTime = localtime( &timer );
-        sprintf( writePtr, "%02ld/%02ld/%04ld %02ld:%02ld:%02ld ", pCurTime->tm_mday, pCurTime->tm_mon + 1,
+        sprintf( writePtr, "%02d/%02d/%04d %02d:%02d:%02d ", pCurTime->tm_mday, pCurTime->tm_mon + 1,
                  pCurTime->tm_year + 1900, pCurTime->tm_hour, pCurTime->tm_min,
                  pCurTime->tm_sec );
         writePtr += 20;

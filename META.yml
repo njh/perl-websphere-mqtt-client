@@ -1,8 +1,7 @@
---- #YAML:1.0
+---
 name: WebSphere-MQTT-Client
-version: 0.01
-author:
-  - Nicholas Humfrey, njh@ecs.soton.ac.uk
+version: 0.02
+author: ~
 abstract: WebSphere MQ Telemetry Transport Client
 license: restrictive
 requires:
@@ -16,5 +15,7 @@ build_requires:
 provides:
   WebSphere::MQTT::Client:
     file: lib/WebSphere/MQTT/Client.pm
-    version: 0.01
-generated_by: Module::Build version 0.26
+    version: 0.02
+  WebSphere::MQTT::Persist::File:
+    file: lib/WebSphere/MQTT/Persist/File.pm
+generated_by: Module::Build version 0.2609

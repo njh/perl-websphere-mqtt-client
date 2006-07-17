@@ -4,9 +4,6 @@ package WebSphere::MQTT::Client;
 #
 # MQTT: WebSphere MQ Telemetry Transport
 #
-# Nicholas Humfrey
-# njh@ecs.soton.ac.uk
-#
 
 use strict;
 use Sys::Hostname;
@@ -16,7 +13,7 @@ use Carp;
 
 use vars qw/$VERSION/;
 
-$VERSION="0.01";
+$VERSION="0.02";
 
 XSLoader::load('WebSphere::MQTT::Client', $VERSION);
 
@@ -39,6 +36,8 @@ sub new {
     	'keep_alive'	=> 10,			# timeout (in seconds) for receiving data
     	'retry_count'	=> 10,
     	'retry_interval' => 10,
+    	'async'			=> 0,
+    	'persist'		=> undef,
 
 		# Used internally only    	
   		'handle'			=> undef,			# Connection Handle
@@ -59,7 +58,6 @@ sub new {
     bless $self, $class;
 
     # Arguments specified ?
-    if (defined %args) {
 		foreach (keys %args) {
 			my $key = $_;
 			$key =~ tr/A-Z/a-z/;
@@ -67,7 +65,6 @@ sub new {
 			$key = 'host' if ($key eq 'hostname');
 			$self->{$key} = $args{$_};
 		}
-    }
     
     # Generate a Client ID if we don't have one 
     if (defined $self->{'clientid'}) {
@@ -121,23 +118,37 @@ sub connect {
 	
 	# Connect
 	my $result = $self->xs_connect( $self->{'api_task_info'} );
-	return $result unless($result eq 'OK');
 
 	# Print the result if debugging enabled
 	print "xs_connect: $result\n" if ($self->{'debug'});
+
+	return $result unless($result eq 'OK');
+
+	# New feature in 0.02: an asynchronous connect returns immediately.
+	# The state will sit in CONNECTING for as long as retries take place.
+	# This allows outbound messages to be published (and queued locally
+	# if QOS>0), even if the remote server is currently down.
+	#
+	# Note: when all the retries are used up, the state changes to
+	# CONNECTION_BROKEN and no publishing can take place until you call
+	# connect() again
+	#
+	return 0 if ($self->{'async'});
 	
 	# Wait until we are connected
 	# FIXME: *with timeout*
-	my $state = 'CONNECTING';
-	while ($state eq 'CONNECTING') {
-		$state = $self->status();
-		sleep 0.5;
+	while (1) {
+		$result = $self->status();
+		last unless $result eq 'CONNECTING';
+		select(undef, undef, undef, 0.5);  # short sleep
 	}
 	
 	# Failed to connect ?
-	if ($state ne 'CONNECTED') {
+	if ($result ne 'CONNECTED') {
 		$self->disconnect();
-		return 'FAILED';
+		# backwards compatibility
+		return 'FAILED' if ($result eq 'CONNECTION_BROKEN');
+		return $result;
 	}
 	
 	# Success
@@ -160,14 +171,21 @@ sub disconnect {
 
 sub publish {
 	my $self = shift;
- 		# params for subscribe/publish
-#		'qos'			=> 0,			# quality of service (0/1/2)
-#    	'retain',		=> 0,			# broker will retain messgae until 
-    									#   another publication is received 
-    									#   for the same topic.  
+	my ($data, $topic, $qos, $retain) = @_;
 
-	## Not finished yet ##
+	croak("Usage: publish(data, topic, [qos, [retain]]") unless ((defined $data) && (defined $topic));
+	$qos = 0 unless (defined $qos);
+	$retain = 0 unless (defined $retain);
 
+	# Publish
+	my $result = $self->xs_publish( $data, $topic, $qos, $retain );
+
+	# Print the result if debugging enabled
+	print "xs_publish[$data][$topic]: $result\n" if ($self->{'debug'});
+
+	# Return 0 if result is OK
+	return 0 if ($result eq 'OK');
+	return $result;
 }
 
 sub subscribe {
@@ -191,7 +209,7 @@ sub subscribe {
 
 sub receivePub {
 	my $self = shift;
-	my($match) = @_;	# only receive messages which look like this
+	my($match) = @_;	# FIXME: only receive messages which look like this
 	
 #    	'match'			=> undef,		
 	my $result = $self->xs_receivePub();
@@ -202,6 +220,12 @@ sub receivePub {
 		print $result->{'data'}."\n";
 	}
 
+	# Note: if an error occurs (e.g. connection lost), we will get
+	# $result->{'status'} but nothing else. For API compatibility, we
+	# will treat this as a fatal error. If the application cares, it can
+	# use eval to catch this.
+	croak("receivePub status: $result->{'status'}") if defined $result->{'status'};
+	
 	return ($result->{'topic'}, $result->{'data'}, $result->{'options'} );
 }
 
@@ -270,7 +294,7 @@ WebSphere::MQTT::Client - WebSphere MQ Telemetry Transport Client
 
   use WebSphere::MQTT::Client;
 
-  my $mqtt = WebSphere::MQTT::Client->new( 'localhost' );
+  my $mqtt = WebSphere::MQTT::Client->new( Hostname => 'localhost' );
 
   $mqtt->disconnect();
 
@@ -285,11 +309,13 @@ Publish and Subscribe to broker.
 
 =over
 
-=item add publish support
-
 =item add full POD documentation
 
-=item support theaded version of C code
+=item LWT (Last Will and Testament)
+
+=item support threaded version of C code
+
+=item interface to set internal log level ( pHconn->comParms.mspLogOptions )
 
 =back
 
@@ -300,9 +326,10 @@ C<bug-websphere-mqtt-client@rt.cpan.org>, or through the web interface at
 L<http://rt.cpan.org>.  I will be notified, and then you will automatically
 be notified of progress on your bug as I make changes.
 
-=head1 AUTHOR
+=head1 AUTHORS
 
 Nicholas Humfrey, njh@ecs.soton.ac.uk
+Brian Candler, B.Candler@pobox.com
 
 =head1 COPYRIGHT AND LICENSE
 

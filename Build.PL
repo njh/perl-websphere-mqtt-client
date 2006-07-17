@@ -15,9 +15,9 @@ my $LDFLAGS = '';
 # or use Module::Build::os_type() ?
 if ($OSNAME eq 'darwin') {
 	# Mac OS X
-	$CFLAGS .= ' -DUNIX';
+	$CFLAGS .= ' -DUNIX -Wall';
 } elsif ($OSNAME eq 'linux') {
-	$CFLAGS .= ' -DUNIX -DLINUX';
+	$CFLAGS .= ' -DUNIX -DLINUX -Wall';
 } elsif ($OSNAME eq 'aix') {
 	$CFLAGS .= ' -DUNIX -DAIX';
 } elsif ($OSNAME eq 'sunos') {
@@ -54,6 +54,8 @@ my $build = Module::Build->new
 		'Time::HiRes' => 0,
 	},
 	
+	
+	create_makefile_pl => 'passthrough',
 	
 	include_dirs => [ 'src' ],
 	c_source => 'src',

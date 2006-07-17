@@ -79,7 +79,7 @@ DllExport int MQIsdp_ReceiveTask( MQISDPTI *pTaskInfo ) {
     rcvHconn.ipcCb.receiveMailbox = pTaskInfo->receiveMailbox;
     rcvHconn.ipcCb.apiMailbox = MSP_NULL_MAILBOX;
     rcvHconn.ipcCb.sendMutex = pTaskInfo->sendMutex;
-    rcvHconn.ipcCb.receiveSemaphore = MSP_NULL_SEMAPHORE;
+    rcvHconn.ipcCb.receiveSemaphore = (MSH)MSP_NULL_SEMAPHORE;
     rcvHconn.ipcCb.readTimeout = 5000;   /* 5 seconds */
     rcvHconn.ipcCb.options = 0;
     rcvHconn.ipcCb.ipcBufferSz = MSP_DEFAULT_IPC_BUFFER_SZ;
