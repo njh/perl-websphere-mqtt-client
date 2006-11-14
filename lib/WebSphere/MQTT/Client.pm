@@ -13,7 +13,7 @@ use Carp;
 
 use vars qw/$VERSION/;
 
-$VERSION="0.02";
+$VERSION="0.03";
 
 XSLoader::load('WebSphere::MQTT::Client', $VERSION);
 
@@ -40,10 +40,11 @@ sub new {
     	'persist'		=> undef,
 
 		# Used internally only    	
-  		'handle'			=> undef,			# Connection Handle
- 		'send_task_info'	=> undef,			# Send Thread Parameters
- 		'recv_task_info'	=> undef,			# Receive Thread Parameters
-		'api_task_info'		=> undef,			# API Thread Parameters
+  		'handle'		=> undef,	# Connection Handle
+		'txqueue'		=> [],		# TX messages in transit
+ 		'send_task_info'	=> undef,	# Send Thread Parameters
+ 		'recv_task_info'	=> undef,	# Receive Thread Parameters
+		'api_task_info'		=> undef,	# API Thread Parameters
 
 		# TODO: LWT stuff
 		#'lwt_enabled'	=> 0,
@@ -158,6 +159,12 @@ sub connect {
 sub disconnect {
 	my $self = shift;
 
+	# Allow 10 seconds for any messages in transit to be delivered
+	for (my $tries=0; $self->txQueueSize > 0 && $tries < 10; $tries++) {
+		sleep 1;
+	}
+	$self->{'txqueue'} = [];
+
 	# Disconnect
 	my $result = $self->xs_disconnect();
 	
@@ -171,21 +178,34 @@ sub disconnect {
 
 sub publish {
 	my $self = shift;
-	my ($data, $topic, $qos, $retain) = @_;
+	my ($data, $topic, $qos, $retain, $cbfunc, $cbarg) = @_;
 
 	croak("Usage: publish(data, topic, [qos, [retain]]") unless ((defined $data) && (defined $topic));
 	$qos = 0 unless (defined $qos);
 	$retain = 0 unless (defined $retain);
 
+	# Keep the queue of TX message IDs tidy, because publishing a message
+	# may allocate a new message ID (possibly re-using an old one).
+	# Also gives an opportunity to invoke callbacks.
+	$self->txQueueSize;
+
 	# Publish
-	my $result = $self->xs_publish( $data, $topic, $qos, $retain );
+	my ($result,$hmsg) = $self->xs_publish( $data, $topic, $qos, $retain );
 
 	# Print the result if debugging enabled
-	print "xs_publish[$data][$topic]: $result\n" if ($self->{'debug'});
+	print "xs_publish[$data][$topic]: $result, $hmsg\n" if ($self->{'debug'});
 
-	# Return 0 if result is OK
-	return 0 if ($result eq 'OK');
-	return $result;
+	return $result if $result ne 'OK';
+
+	# New feature in 0.03: caller can provide callback function
+	# and argument, which will be invoked when message has had
+	# its delivery ACK'd.
+	# This allows QOS 1 publishers to use their existing queue
+	# without copying into the MQISDP persistence layer.
+	if ($cbfunc && $qos) {
+		push @{$self->{'txqueue'}}, [$hmsg, $cbfunc, $cbarg];
+	}
+	return 0;
 }
 
 sub subscribe {
@@ -209,9 +229,10 @@ sub subscribe {
 
 sub receivePub {
 	my $self = shift;
-	my($match) = @_;	# FIXME: only receive messages which look like this
-	
-#    	'match'			=> undef,		
+	# my(%args) = @_;
+	# FIXME: only receive messages which look like match=>'patt'
+
+	$self->txQueueSize;
 	my $result = $self->xs_receivePub();
 
 	# Print the result if debugging enabled
@@ -224,9 +245,10 @@ sub receivePub {
 	# $result->{'status'} but nothing else. For API compatibility, we
 	# will treat this as a fatal error. If the application cares, it can
 	# use eval to catch this.
-	croak("receivePub status: $result->{'status'}") if defined $result->{'status'};
+	croak("receivePub status: $result->{'status'}") if
+	  ($result->{'status'} ne 'OK' && $result->{'status'} ne 'PUBS_AVAILABLE');
 	
-	return ($result->{'topic'}, $result->{'data'}, $result->{'options'} );
+	return ( $result->{'topic'}, $result->{'data'}, $result->{'options'} );
 }
 
 sub unsubscribe {
@@ -249,15 +271,46 @@ sub unsubscribe {
 
 sub status {
 	my $self = shift;
+	$self->txQueueSize;
 	return $self->xs_status();
+}
+
+# 
+# Check the status of any messages 'in transit', perform callbacks for
+# those which have been delivered or dropped, and return the number of
+# messages still left
+# 
+sub txQueueSize {
+	my $self = shift;
+	my $q = $self->{'txqueue'};
+	return 0 unless @$q;
+	my $i = 0;
+	#print "--- txQueue ---\n";
+	while ($i < @$q) {
+		my ($hmsg, $cbfunc, $cbarg) = @{$q->[$i]};
+		my $s = $self->xs_getMsgStatus($hmsg);
+		#print "Message $hmsg status $s\n";
+		if ($s eq 'DELIVERED') {
+			$cbfunc->(0, $cbarg);	# success
+			splice @$q, $i, 1;
+		}
+		elsif ($s =~ /ERROR/) {
+			$cbfunc->($s, $cbarg);	# fail
+			splice @$q, $i, 1;
+		}
+		else {
+			$i++;			# still in transit
+		}
+	}
+	return scalar(@$q);
 }
 
 sub terminate {
 	my $self = shift;
 
 	# Disconnect first (if connected)
-    if (exists $self->{'handle'} and defined $self->{'handle'}) {
-    	$self->disconnect();
+	if (exists $self->{'handle'} and defined $self->{'handle'}) {
+		$self->disconnect();
 	}
 
 	# Terminate threads and free memory

@@ -4,7 +4,7 @@ use strict;
 use Test;
 use WebSphere::MQTT::Client;
 
-BEGIN { plan tests => 15 }
+BEGIN { plan tests => 19 }
 
 our $tres;
 our (@rx_messages, @tx_messages);
@@ -142,17 +142,25 @@ $mqtt = WebSphere::MQTT::Client->new(
 	async => 1,
 );
 $rc = $mqtt->connect();
-ok( $rc == "0" );
+ok( ! $rc );
 ok( $tres eq ":open:getAllSentMessages:getAllReceivedMessages" );
 
 # No persistence calls made for QOS 0 messages
 $tres = "";
-$mqtt->publish("foo", "Topic1", 0);
+$rc = $mqtt->publish("foo", "Topic1", 0);
+ok( ! $rc );
+ok( $tres eq "" );
+
+# A very big message (>32768 bytes) will be rejected
+$tres = "";
+$rc = $mqtt->publish("x" x 33000, "Topic1", 1);
+ok( $rc eq "Q_FULL" );
 ok( $tres eq "" );
 
 # QOS 1 will persist the message
 $tres = "";
-$mqtt->publish("bar", "Topic1", 1);
+$rc = $mqtt->publish("bar", "Topic1", 1);
+ok( ! $rc );
 ok( $tres eq ":addSentMessage" );
 
 exit;

@@ -45,7 +45,7 @@ sleep 2;
 while( 1 ) {
 
 	my @res = $mqtt->receivePub();
-	#die "Failed to receivePub: $res\n" if ($res);
+	#errors can be caught by eval { }
 	
 	print Dumper(@res);
 }

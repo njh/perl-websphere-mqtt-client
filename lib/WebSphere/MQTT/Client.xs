@@ -676,6 +676,8 @@ xs_receivePub( self )
 					croak("xs_receivePub: data not stored");
 				}
 
+				/* FALLTHROUGH */
+
   			default:
   				
 				/* Store the status */
@@ -703,9 +705,11 @@ xs_receivePub( self )
 
 ##
 ## Publish a message
+## Note that you cannot send or queue more than MSP_DEFAULT_MAX_OUTQ_SZ
+## bytes (defined as 32768 in mspsh.h), or you will get Q_FULL response
 ##
-const char *
-xs_publish( self, data, topic, qos, retain)
+void
+xs_publish( self, data, topic, qos, retain )
 	HV*		self
 	char*		data
 	char*		topic
@@ -714,11 +718,11 @@ xs_publish( self, data, topic, qos, retain)
 	
   PREINIT:
   	MQISDPCH	handle = MQISDP_INV_CONN_HANDLE;
-  	MQISDPMH	hMsg = 0;
+  	MQISDPMH	hMsg = MQISDP_INV_MSG_HANDLE;
   	PUB_PARMS	Pp;
 	int		rc = 0;
 	
-  CODE:
+  PPCODE:
 	
   	/* get the connection handle */
   	handle = get_handle_from_hv( self );
@@ -751,6 +755,31 @@ xs_publish( self, data, topic, qos, retain)
 	/* Publish */
 	rc = MQIsdp_publish( handle, &hMsg, &Pp );
 
+	/* Return two values as an array */	
+	XPUSHs( sv_2mortal( newSVpv( get_status_string(rc), 0 ) ) );
+	XPUSHs( sv_2mortal( newSVnv( hMsg ) ) );
+
+##
+## Check status of a message published at QOS 1/2
+## Returns one of:
+## DELIVERED, IN_PROGRESS, RETRYING, MSG_HANDLE_ERROR, CONN_HANDLE_ERROR
+##
+const char*
+xs_getMsgStatus( self, hMsg )
+	HV*		self
+  	long		hMsg
+	
+  PREINIT:
+  	MQISDPCH	handle = MQISDP_INV_CONN_HANDLE;
+	int		rc = MQISDP_INV_MSG_HANDLE;
+	
+  CODE:
+	
+  	/* get the connection handle */
+  	handle = get_handle_from_hv( self );
+	
+	rc = MQIsdp_getMsgStatus( handle, hMsg );
+	
 	RETVAL = get_status_string(rc);
  	
   OUTPUT:

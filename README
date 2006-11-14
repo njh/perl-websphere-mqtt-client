@@ -1,4 +1,4 @@
-WebSphere-MQTT-Client version 0.02
+WebSphere-MQTT-Client version 0.03
 ==================================
 
 WebSphere::MQTT::Client is a perl module that talks:
@@ -40,7 +40,7 @@ INSTALLATION
 AUTHORS
 
 	Nicholas Humfrey, njh@ecs.soton.ac.uk
-	Brian Candler, B.Candler@pobox.com (version 0.02 changes)
+	Brian Candler, B.Candler@pobox.com (version 0.02, 0.03 changes)
 
 COPYRIGHT AND LICENSE
 

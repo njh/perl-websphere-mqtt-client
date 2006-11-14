@@ -33,4 +33,5 @@ Build.PL
 Makefile.PL
 META.yml
 examples/publish.pl
+examples/publish1.pl
 examples/subscribe.pl
