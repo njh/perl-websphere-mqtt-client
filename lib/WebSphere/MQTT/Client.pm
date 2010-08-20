@@ -381,7 +381,7 @@ be notified of progress on your bug as I make changes.
 
 =head1 AUTHORS
 
-Nicholas Humfrey, njh@ecs.soton.ac.uk
+Nicholas J Humfrey, njh@cpan.org
 Brian Candler, B.Candler@pobox.com
 
 =head1 COPYRIGHT AND LICENSE
