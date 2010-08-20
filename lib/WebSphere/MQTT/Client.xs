@@ -3,9 +3,8 @@
 	WebSphere MQ Telemetry Transport
 	Perl Interface to IA93
 
-	Nicholas Humfrey
-	University of Southampton
-	njh@ecs.soton.ac.uk
+	Nicholas J Humfrey
+	njh@aelius.com
 	
 */
 
